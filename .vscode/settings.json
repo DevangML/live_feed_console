@@ -1,0 +1,47 @@
+{
+  // ==========================================
+  // 1. Core Editor Styles & Optimization
+  // ==========================================
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+  "editor.wordWrap": "on",
+  "editor.lineNumbers": "on",
+  "editor.minimap.enabled": false, // Frees up screen real estate for code
+  "editor.guides.bracketPairs": "active", // Visually links matching brackets
+  "editor.linkedEditing": true, // Renaming a JSX tag automatically renames its closing tag
+  // ==========================================
+  // 2. Auto-Format & Clean Up on Save
+  // ==========================================
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": "always" // Automatically sorts and removes unused import statements
+  },
+  // ==========================================
+  // 3. Language Specific Configurations
+  // ==========================================
+  // Force Prettier as the default formatter for JS and JSX
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[javascriptjavascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  // Ensure Emmet (HTML abbreviation expansion) works flawlessly inside React JSX
+  "emmet.includeLanguages": {
+    "javascript": "javascriptreact"
+  },
+  // ==========================================
+  // 4. Prettier Formatting Rules
+  // ==========================================
+  "prettier.semi": true, // Always insert semicolons
+  "prettier.singleQuote": true, // Use single quotes for JS/JSX strings
+  "prettier.jsxSingleQuote": false, // Use double quotes for JSX attributes (industry standard)
+  "prettier.trailingComma": "es5", // Clean git diffs by adding trailing commas where valid
+  // ==========================================
+  // 5. Modern JavaScript & React Intellisense (js/ts)
+  // ==========================================
+  "js/ts.suggest.autoImports": true, // Modern setting for auto-import suggestions
+  "js/ts.updateImportsOnFileMove.enabled": "always", // Modern setting for file-move path refactoring
+  "js/ts.preferences.quoteStyle": "single", // FIXED: Modern setting for auto-import quote styles
+  "js/ts.preferences.importModuleSpecifier": "non-relative" // FIXED: Modern setting for absolute/aliased paths
+}
