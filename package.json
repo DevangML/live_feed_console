@@ -1,0 +1,16 @@
+{
+  "name": "live-feed-console",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "quokka": {
+    "nativeEsm": true,
+    "stdEsm": false,
+    "babel": false,
+    "env": {
+      "params": {
+        "runner": "--experimental-specifier-resolution=node"
+      }
+    }
+  }
+}

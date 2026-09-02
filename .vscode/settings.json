@@ -43,5 +43,13 @@
   "js/ts.suggest.autoImports": true, // Modern setting for auto-import suggestions
   "js/ts.updateImportsOnFileMove.enabled": "always", // Modern setting for file-move path refactoring
   "js/ts.preferences.quoteStyle": "single", // FIXED: Modern setting for auto-import quote styles
-  "js/ts.preferences.importModuleSpecifier": "non-relative" // FIXED: Modern setting for absolute/aliased paths
+  "js/ts.preferences.importModuleSpecifier": "non-relative", // FIXED: Modern setting for absolute/aliased paths
+  // ==========================================
+  // 6. Quokka.js
+  // ==========================================
+  "quokka.automaticRestart": true,
+  // ==========================================
+  // 7. Console Ninja
+  // ==========================================
+  "console-ninja.installBinToPath": true
 }
