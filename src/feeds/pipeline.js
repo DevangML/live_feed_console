@@ -1,7 +1,7 @@
 // Data cleansing engine for various data sources we use like USGS Earthquake Feed, the Open-Meteo Weather Feed, CoinGecko Crypto Feed
 
-import { parseJson, pipe } from '../../utils/helpers';
-import { ParseError } from './errors';
+import { parseJson, pipe } from '../../utils/helpers.js';
+import { ParseError } from './errors.js';
 
 // Intercepts the raw external responses at the boundary, transforms them into a single unified internal event shape, and ensures the data is rejected before ever touching our redux store or react state
 
@@ -99,4 +99,4 @@ export const normalizerFactory = ({
   );
 };
 
-console.log('Hi');
+console.log('Bye');

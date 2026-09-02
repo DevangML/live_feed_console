@@ -1,4 +1,4 @@
-import { assertValid } from '../../utils/assertions';
+import { assertValid } from '../../utils/assertions.js';
 
 const VALID_STATUSES = new Set([
   'IDLE',

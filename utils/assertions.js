@@ -1,4 +1,4 @@
-import { VALIDATORS } from './validators';
+import { VALIDATORS } from './validators.js';
 
 export function assertValid(value, label, type) {
   const rules = VALIDATORS[type];

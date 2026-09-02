@@ -6,11 +6,6 @@
   "quokka": {
     "nativeEsm": true,
     "stdEsm": false,
-    "babel": false,
-    "env": {
-      "params": {
-        "runner": "--experimental-specifier-resolution=node"
-      }
-    }
+    "babel": false
   }
 }

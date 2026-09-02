@@ -1,0 +1,27 @@
+---
+description: ESM import rules for Node.js native modules
+globs: **/*.{js,mjs}
+alwaysApply: false
+---
+
+# ESM Imports
+
+This project uses `"type": "module"` in `package.json`. Node, Quokka, and Wallaby require explicit file extensions in relative imports.
+
+## Rules
+
+- Always include the `.js` extension in relative imports, even when importing from `.js` source files
+- Use `import` / `export` only — no `require()`
+- Prefer named imports over default imports when both exist
+
+```javascript
+// ❌ BAD — fails at runtime in Node ESM
+import { pipe } from '../../utils/helpers';
+import { ParseError } from './errors';
+
+// ✅ GOOD
+import { pipe } from '../../utils/helpers.js';
+import { ParseError } from './errors.js';
+```
+
+When adding a new file, update every import path that references it to include `.js`.

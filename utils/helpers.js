@@ -1,4 +1,4 @@
-import { ParseError } from '../src/feeds/errors';
+import { ParseError } from '../src/feeds/errors.js';
 
 function capitalize(s) {
   if (!(typeof s === 'string')) {
