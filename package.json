@@ -7,5 +7,10 @@
     "nativeEsm": true,
     "stdEsm": false,
     "babel": false
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.3.3",
+    "jsdom": "^30.0.1",
+    "vitest": "^4.1.11"
   }
 }
