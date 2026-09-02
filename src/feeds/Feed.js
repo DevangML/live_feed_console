@@ -26,7 +26,7 @@ class Feed {
 
   constructor(id, name, endpoints) {
     if (new.target === Feed) {
-      throw new TypeError('Cannot constuct Feed instances directly');
+      throw new TypeError('Cannot construct Feed instances directly');
     }
 
     assertValid(id, Labels.id, 'string');
