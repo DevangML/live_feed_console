@@ -204,3 +204,11 @@ curryWithPlaceholder.placeholder = Symbol('curry_placeholder');
  *
  * 💡 Explanation: `triple(4)` produces `3 * 4 = 12`. Then `double(12)` produces `2 * 12 = 24`.
  */
+
+export {
+  sum3,
+  infiniteSum,
+  infiniteSum2 as add,
+  curry,
+  curryWithPlaceholder
+};
