@@ -31,5 +31,6 @@ This product is built following Tier-1 / Staff-Engineer principles:
 2. **Immutability:** We never mutate existing arrays or objects. We use defensive copying to prevent side effects.
 3. **Mathematical Proof:** Every branch of logic is mathematically proven using Behavior-Driven Development (BDD) and Vitest.
 4. **No Magic:** We do not rely on heavy libraries to solve our problems. We build the architecture natively using ECMA-262 specifications.
+5. **Pluggable Proof:** Industry libraries (Redux, TanStack Query, Zustand) are implemented as **alternate engines** behind the same contracts — not shortcuts around understanding. The native path (`EventBus` + `PollingFeed`) is always the default; runtime switches exist to compare behavior under load (see [live_console_plan.md](./live_console_plan.md)).
 
 By the end of this project, the Live Feed Console will stand as a FAANG-grade masterclass in JavaScript Systems Design.
