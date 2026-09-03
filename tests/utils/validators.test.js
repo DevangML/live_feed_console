@@ -35,4 +35,17 @@ describe('utils/validators', () => {
       expect(VALIDATORS.array.isEmpty(['https://api.com'])).toBe(false);
     });
   });
+
+  describe('Number Validator', () => {
+    it('correctly validates number types', () => {
+      expect(VALIDATORS.number.checkType(8)).toBe(true);
+      expect(VALIDATORS.number.checkType(23.4)).toBe(true);
+      expect(VALIDATORS.number.checkType('string')).toBe(false);
+      expect(VALIDATORS.number.checkType({})).toBe(false);
+    });
+
+    it('identifies empty arrays and arrays with blank items', () => {
+      expect(VALIDATORS.number.isEmpty(0)).toBe(false);
+    });
+  });
 });
