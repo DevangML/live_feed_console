@@ -98,5 +98,3 @@ export const normalizerFactory = ({
     enrichFeedMetadata(feedId)
   );
 };
-
-console.log('Bye');
