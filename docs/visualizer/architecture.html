@@ -1,0 +1,1321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Feed Console — 3D Architecture & Ingestion Flow</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #05070b;
+      --panel-bg: rgba(10, 14, 23, 0.9);
+      --panel-border: rgba(0, 240, 255, 0.3);
+      --panel-glow: 0 0 45px rgba(0, 240, 255, 0.15);
+      --cyan: #00f0ff;
+      --magenta: #ff007f;
+      --green: #00ff66;
+      --purple: #9d4edd;
+      --yellow: #ffb700;
+      --teal: #00d2d3;
+      --test-green: #1dd1a1;
+      --text: #e2e8f0;
+      --text-dim: #94a3b8;
+      --code-bg: #070a10;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      user-select: none;
+    }
+
+    #canvas-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    /* Top HUD */
+    header {
+      position: absolute;
+      top: 24px;
+      left: 28px;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .badge-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 6px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0, 240, 255, 0.08);
+      border: 1px solid rgba(0, 240, 255, 0.35);
+      padding: 4px 12px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--cyan);
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.2);
+    }
+
+    .badge-dot {
+      width: 7px;
+      height: 7px;
+      background: var(--cyan);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.3; transform: scale(0.85); }
+    }
+
+    .telemetry-ticker {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-family: 'Fira Code', monospace;
+      color: #10b981;
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      background: linear-gradient(135deg, #ffffff 30%, #00f0ff 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: var(--text-dim);
+      margin-top: 4px;
+      font-family: 'Fira Code', monospace;
+    }
+
+    /* Top-Right Navigation Links */
+    .top-nav {
+      position: absolute;
+      top: 24px;
+      right: 28px;
+      z-index: 15;
+      display: flex;
+      gap: 12px;
+    }
+
+    .nav-btn {
+      background: var(--panel-bg);
+      border: 1px solid rgba(0, 210, 211, 0.4);
+      color: var(--teal);
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      text-decoration: none;
+      backdrop-filter: blur(12px);
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .nav-btn:hover {
+      background: rgba(0, 210, 211, 0.15);
+      box-shadow: 0 0 20px rgba(0, 210, 211, 0.4);
+      transform: translateY(-2px);
+      color: #fff;
+    }
+
+    /* Linear Stage Banner (Horizontal Flow Progression) */
+    .stage-hud {
+      position: absolute;
+      top: 90px;
+      left: 28px;
+      z-index: 10;
+      display: flex;
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    .stage-pill {
+      background: rgba(10, 14, 23, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-dim);
+      font-family: 'Fira Code', monospace;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .stage-pill.active {
+      border-color: var(--cyan);
+      color: var(--cyan);
+      background: rgba(0, 240, 255, 0.1);
+    }
+
+    .stage-arrow {
+      color: rgba(255, 255, 255, 0.3);
+      font-size: 14px;
+      align-self: center;
+    }
+
+    /* Bottom Control Bar */
+    .controls-overlay {
+      position: absolute;
+      bottom: 24px;
+      left: 28px;
+      z-index: 10;
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn {
+      background: var(--panel-bg);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: var(--text);
+      padding: 9px 18px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      backdrop-filter: blur(16px);
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn:hover {
+      border-color: var(--cyan);
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.35);
+      transform: translateY(-2px);
+    }
+
+    .btn.active {
+      background: rgba(0, 240, 255, 0.18);
+      border-color: var(--cyan);
+      color: var(--cyan);
+    }
+
+    .btn-sim {
+      background: linear-gradient(135deg, rgba(0, 255, 102, 0.35), rgba(0, 240, 255, 0.35));
+      border: 1px solid var(--green);
+      color: #fff;
+    }
+
+    /* Legend Overlay */
+    .legend-overlay {
+      position: absolute;
+      bottom: 24px;
+      right: 28px;
+      z-index: 10;
+      background: var(--panel-bg);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 14px;
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+      pointer-events: auto;
+    }
+
+    .legend-title {
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      color: var(--text-dim);
+      margin-bottom: 2px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-dim);
+    }
+
+    .legend-swatch {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    /* Cyberpunk HUD Inspector Drawer */
+    #inspector {
+      position: absolute;
+      top: 80px;
+      right: 28px;
+      bottom: 24px;
+      width: 640px;
+      max-width: calc(100vw - 56px);
+      background: var(--panel-bg);
+      backdrop-filter: blur(24px);
+      border: 1px solid var(--panel-border);
+      border-radius: 18px;
+      box-shadow: var(--panel-glow);
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(125%);
+      transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      overflow: hidden;
+    }
+
+    #inspector.open {
+      transform: translateX(0);
+    }
+
+    .inspector-header {
+      padding: 22px 26px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, transparent 100%);
+    }
+
+    .file-tag {
+      font-size: 11px;
+      text-transform: uppercase;
+      font-weight: 800;
+      letter-spacing: 0.07em;
+      padding: 3px 10px;
+      border-radius: 6px;
+      display: inline-block;
+      margin-bottom: 8px;
+    }
+
+    .file-title {
+      font-size: 24px;
+      font-weight: 800;
+      color: #ffffff;
+      font-family: 'Fira Code', monospace;
+      letter-spacing: -0.02em;
+    }
+
+    .file-path {
+      font-size: 12px;
+      color: var(--cyan);
+      font-family: 'Fira Code', monospace;
+      margin-top: 3px;
+    }
+
+    .close-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      font-size: 26px;
+      cursor: pointer;
+      line-height: 1;
+      padding: 6px 10px;
+      border-radius: 8px;
+      transition: all 0.2s;
+    }
+
+    .close-btn:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 0 18px;
+      background: rgba(0, 0, 0, 0.25);
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--text-dim);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 13px 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab-btn:hover {
+      color: #fff;
+    }
+
+    .tab-btn.active {
+      color: var(--cyan);
+      border-bottom-color: var(--cyan);
+    }
+
+    .inspector-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 26px;
+      user-select: text;
+    }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* Cards & Details */
+    .flow-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 18px;
+      margin-bottom: 20px;
+    }
+
+    .flow-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--cyan);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .concept-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-left: 4px solid var(--cyan);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .concept-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .concept-section { margin-bottom: 14px; }
+    .section-tag {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      margin-bottom: 4px;
+      display: block;
+    }
+    .tag-why { color: #f59e0b; }
+    .tag-solves { color: #10b981; }
+    .tag-details { color: #818cf8; }
+    .concept-desc { font-size: 13.5px; line-height: 1.65; color: #cbd5e1; }
+
+    .contract-box {
+      background: var(--code-bg);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 18px;
+      margin-bottom: 20px;
+      font-family: 'Fira Code', monospace;
+      font-size: 13px;
+    }
+
+    pre.code-block {
+      background: var(--code-bg);
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      border-radius: 12px;
+      padding: 20px;
+      font-family: 'Fira Code', monospace;
+      font-size: 12.5px;
+      line-height: 1.65;
+      color: #e2e8f0;
+      overflow-x: auto;
+      white-space: pre-wrap;
+    }
+
+    #edge-tooltip {
+      position: absolute;
+      display: none;
+      background: rgba(10, 14, 23, 0.95);
+      border: 1px solid var(--cyan);
+      box-shadow: 0 0 25px rgba(0, 240, 255, 0.35);
+      padding: 12px 16px;
+      border-radius: 10px;
+      color: #fff;
+      font-size: 12px;
+      pointer-events: none;
+      z-index: 30;
+      max-width: 340px;
+      line-height: 1.5;
+      backdrop-filter: blur(12px);
+    }
+
+    #sim-banner {
+      position: absolute;
+      top: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(10, 14, 23, 0.92);
+      border: 1px solid var(--cyan);
+      box-shadow: 0 0 35px rgba(0, 240, 255, 0.4);
+      padding: 10px 24px;
+      border-radius: 9999px;
+      z-index: 25;
+      display: none;
+      align-items: center;
+      gap: 12px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--cyan);
+      font-family: 'Fira Code', monospace;
+    }
+
+    :root { --panel-bg: rgba(13,19,29,.96); --panel-border: #293747; --panel-glow: 0 18px 80px #0008; }
+    header { top: 25px; left: 28px; }
+    h1 { font-size: 25px; -webkit-text-fill-color: #edf5ff; background: none; }
+    .badge { padding: 0; border: 0; background: none; box-shadow: none; font-size: 9px; letter-spacing: .16em; }
+    .telemetry-ticker { font-size: 9px; color: #8ba6a2; }
+    .subtitle { font-family: inherit; font-size: 12px; }
+    .top-nav { top: 32px; }
+    .nav-btn { font-size: 11px; border-color: #293747; color: #adc1d2; }
+    .stage-hud { top: 65px; left: 292px; right: 28px; justify-content: center; pointer-events: auto; }
+    .stage-pill { cursor: pointer; padding: 10px 18px; color: #d8e2ef; font-family: inherit; background: #101923cc; }
+    .stage-pill:nth-child(1) { border-color: #00ff6650; color: #00ff66; }
+    .stage-pill:nth-child(3) { border-color: #9d4edd80; color: #c492fa; }
+    .stage-pill:nth-child(5) { border-color: #00f0ff50; color: #00f0ff; }
+    .stage-pill small { font-size: 8px; opacity: .65; }
+    .file-browser { position: absolute; top: 122px; left: 28px; bottom: 98px; width: 224px; z-index: 11; display: flex; flex-direction: column; border: 1px solid #23303d; border-radius: 12px; padding: 16px 12px; background: #0b111beb; }
+    .browser-heading { display: flex; justify-content: space-between; color: #91a6bd; font-size: 9px; letter-spacing: .12em; margin: 0 4px 15px; }
+    #file-search { width: 100%; border: 1px solid #2a3848; background: #070d16; border-radius: 7px; padding: 10px; color: white; margin-bottom: 12px; }
+    #file-list { overflow-y: auto; flex: 1; }
+    .file-entry { display: block; width: 100%; text-align: left; color: #bdccdb; border: 1px solid transparent; border-left: 2px solid var(--node-color); background: transparent; border-radius: 4px; padding: 10px 9px; margin: 5px 0; cursor: pointer; }
+    .file-entry strong { font: 11px 'Fira Code', monospace; }
+    .file-entry small { display: block; font-size: 9px; color: #758b9f; margin-top: 5px; overflow-wrap: anywhere; }
+    .file-entry:hover, .file-entry.selected { background: #1a293a; border-top-color: #314257; }
+    .browser-note { font-size: 10px; color: #8195a8; line-height: 1.8; padding: 12px 4px 0; }
+    .map-caption { position: absolute; left: 290px; bottom: 100px; z-index: 9; pointer-events: none; }
+    .map-caption span, .eyebrow { font-size: 9px; color: #698196; letter-spacing: .16em; }
+    .map-caption p { font-size: 16px; margin: 8px 0; }
+    .map-caption small { font-size: 10px; color: #849aad; line-height: 1.8; }
+    .legend-overlay { display: none; }
+    .controls-overlay { bottom: 25px; gap: 8px; }
+    .btn { font-family: inherit; font-size: 11px; box-shadow: none; border-radius: 7px; }
+    #inspector { top: 108px; right: 20px; bottom: 88px; width: min(580px, calc(100vw - 40px)); }
+    #inspector:not(.open) { visibility: hidden; }
+    .tabs { overflow-x: auto; flex-shrink: 0; }
+    .tab-btn { white-space: nowrap; padding: 12px 10px; font-size: 10px; }
+    .inspector-body { user-select: text; }
+    .evidence-note { padding: 12px; border: 1px solid #3a4450; color: #a2b4c4; border-radius: 8px; font-size: 11px; line-height: 1.7; margin-bottom: 15px; }
+    .code-block { white-space: pre-wrap; overflow-wrap: anywhere; }
+    button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid #00f0ff; outline-offset: 3px; }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    dialog { margin: auto; width: min(860px, calc(100vw - 32px)); max-height: calc(100vh - 40px); overflow: auto; background: #0d141f; color: #dbe8f4; border: 1px solid #3b5068; border-radius: 16px; padding: 28px; user-select: text; }
+    dialog::backdrop { background: #010610c9; backdrop-filter: blur(8px); }
+    .trace-heading { display: flex; justify-content: space-between; align-items: center; }
+    .trace-heading h2 { margin-top: 8px; font-size: 26px; }
+    .trace-intro { font-size: 12px; color: #94a9bd; line-height: 1.8; margin: 16px 0; }
+    dialog label { display: block; font-size: 11px; color: #9db0c1; margin: 14px 0 8px; }
+    dialog select, dialog textarea { width: 100%; padding: 10px; border: 1px solid #334456; border-radius: 7px; background: #070c14; color: #dce9f7; }
+    dialog textarea { min-height: 80px; resize: vertical; font: 12px 'Fira Code', monospace; margin-bottom: 12px; }
+    .trace-step { border: 1px solid #2a394b; border-radius: 9px; padding: 16px; margin-top: 14px; }
+    .trace-step h3 { font-size: 13px; color: #be92ff; }
+    .trace-step p { font-size: 11px; color: #a2b4c7; margin-top: 8px; line-height: 1.7; }
+    .trace-step pre { font: 11px 'Fira Code', monospace; padding: 12px; background: #070c14; margin-top: 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .trace-step.failed { border-color: #ce6375; }
+    @media(max-width: 900px) { .file-browser { width: 180px; left: 16px; } .stage-hud { left: 208px; gap: 4px; } .stage-pill { padding: 9px; font-size: 10px; } .stage-pill small { display: none; } .map-caption { left: 212px; } .top-nav { top: 25px; right: 16px; } .nav-btn { font-size: 10px; padding: 8px; } .subtitle { max-width: 390px; } .telemetry-ticker { display: none; } }
+    @media(max-width: 600px) { header { left: 16px; top: 16px; } h1 { font-size: 21px; } .subtitle { max-width: 270px; font-size: 10px; } .top-nav { top: 86px; } .nav-btn { font-size: 9px; } .stage-hud { top: 126px; left: 12px; right: 12px; } .stage-pill { flex: 1; justify-content: center; } .file-browser { top: auto; bottom: 115px; height: 146px; width: calc(100% - 32px); padding: 10px; } .browser-heading, .browser-note { display: none; } #file-list { display: flex; gap: 8px; } .file-entry { min-width: 160px; } #file-search { margin-bottom: 3px; padding: 6px; } .map-caption { display: none; } .controls-overlay { left: 16px; right: 16px; bottom: 14px; flex-wrap: wrap; } .btn { font-size: 10px; padding: 9px; } #inspector { top: 115px; bottom: 110px; right: 12px; max-width: calc(100vw - 24px); } dialog { padding: 18px; } }
+    @media(prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+    * { scrollbar-width: thin; scrollbar-color: #34465a transparent; }
+    .map-caption { left: auto; right: 28px; bottom: 25px; }
+    .map-caption p { display: none; }
+    .map-caption span { display: none; }
+    @media(max-width: 1100px) { .map-caption { display: none; } }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+  <div id="canvas-container"></div>
+
+  <header>
+    <div class="badge-bar">
+      <div class="badge">
+        <div class="badge-dot"></div>
+        ARCHITECTURE EXPLORER
+      </div>
+      <div class="telemetry-ticker" id="live-ticker">
+        <span>⚡</span> <span id="ticker-text">Syncing disk state...</span>
+      </div>
+    </div>
+    <h1>Live Feed Console</h1>
+    <div class="subtitle">Follow the data. Inspect the source. Understand the boundaries.</div>
+  </header>
+
+  <div class="top-nav">
+    <a href="/" class="nav-btn">← Play system</a>
+    <a href="/visualizer/katas.html" class="nav-btn">
+      <span>🥋</span> Open Currying Kata Lab ➔
+    </a>
+  </div>
+
+  <div class="stage-hud">
+    <button class="stage-pill" data-node="PollingFeed.js">01 <span>Ingestion</span> <small>PLANNED</small></button>
+    <div class="stage-arrow">➔</div>
+    <button class="stage-pill" data-node="pipeline.js">02 <span>Transformation</span></button>
+    <div class="stage-arrow">➔</div>
+    <button class="stage-pill" data-node="Feed.js">03 <span>Domain state</span></button>
+  </div>
+
+  <div id="sim-banner">
+    <span>🚀</span> <span id="sim-banner-text">Simulating Payload Ingestion Flow...</span>
+  </div>
+
+  <div class="controls-overlay">
+    <button class="btn" id="btn-rotate" aria-pressed="false">
+      <span>🔄</span> Auto-Orbit
+    </button>
+    <button class="btn btn-sim" id="btn-simulate">
+      <span>⚡</span> Trace a payload
+    </button>
+    <button class="btn" id="btn-reset-cam">
+      <span>🎯</span> Reset Camera
+    </button>
+    <button class="btn" id="btn-rescan">
+      <span>📡</span> Refresh Repo
+    </button>
+  </div>
+
+  <div class="legend-overlay">
+    <div class="legend-title">Architectural Zones</div>
+    <div class="legend-item"><div class="legend-swatch" style="background: #00ff66; box-shadow: 0 0 8px #00ff66;"></div> Stage 1: Ingestion (PollingFeed.js)</div>
+    <div class="legend-item"><div class="legend-swatch" style="background: #9d4edd; box-shadow: 0 0 8px #9d4edd;"></div> Stage 2: Pure Pipeline (pipeline.js)</div>
+    <div class="legend-item"><div class="legend-swatch" style="background: #00f0ff; box-shadow: 0 0 8px #00f0ff;"></div> Stage 3: Domain Base (Feed.js)</div>
+    <div class="legend-item"><div class="legend-swatch" style="background: #ffb700; box-shadow: 0 0 8px #ffb700;"></div> Foundations (helpers, assertions, errors)</div>
+    <div class="legend-item"><div class="legend-swatch" style="background: #1dd1a1; box-shadow: 0 0 8px #1dd1a1;"></div> Verification Dock (Isolated Tests)</div>
+  </div>
+
+  <!-- Inspector Drawer -->
+  <aside id="inspector" aria-label="File inspector" inert>
+    <div class="inspector-header">
+      <div>
+        <span class="file-tag" id="panel-tag">DOMAIN</span>
+        <h2 class="file-title" id="panel-name">Feed.js</h2>
+        <div class="file-path" id="panel-path">src/feeds/Feed.js</div>
+      </div>
+      <button class="close-btn" id="btn-close-inspector" aria-label="Close inspector">&times;</button>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="tab-semantics">Semantics & Flow</button>
+      <button class="tab-btn" data-tab="tab-concepts">Enabling Concepts</button>
+      <button class="tab-btn" data-tab="tab-contract">Contract & Invariants</button>
+      <button class="tab-btn" data-tab="tab-pseudocode">Pseudocode</button>
+      <button class="tab-btn" data-tab="tab-raw">Live Code</button>
+    </div>
+
+    <div class="inspector-body">
+      <div class="tab-content active" id="tab-semantics">
+        <div id="semantics-container"></div>
+      </div>
+      <div class="tab-content" id="tab-concepts">
+        <div id="concepts-container"></div>
+      </div>
+      <div class="tab-content" id="tab-contract">
+        <div id="contract-container"></div>
+      </div>
+      <div class="tab-content" id="tab-pseudocode">
+        <pre class="code-block" id="pseudocode-text"></pre>
+      </div>
+      <div class="tab-content" id="tab-raw">
+        <pre class="code-block" id="raw-code-text">Loading...</pre>
+      </div>
+    </div>
+  </aside>
+
+  <nav class="file-browser" aria-label="Repository files">
+    <div class="browser-heading"><span>REPOSITORY</span><span id="file-count">…</span></div>
+    <label for="file-search" class="sr-only">Find a file</label>
+    <input id="file-search" type="search" placeholder="Find a file…  /" autocomplete="off">
+    <div id="file-list"></div>
+    <p class="browser-note">Select a file to follow its connections.<br>Drag to orbit · scroll to zoom.</p>
+  </nav>
+  <div class="map-caption"><span>THE SYSTEM AT A GLANCE</span><p>From external payload to domain state</p><small>Solid: source relationships · dotted: test references<br>Purple flow: intended integration; polling is not implemented.</small></div>
+  <dialog id="trace-dialog" aria-labelledby="trace-title">
+    <div class="trace-heading"><div><span class="eyebrow">EXECUTABLE WALKTHROUGH</span><h2 id="trace-title">Follow one payload</h2></div><button class="close-btn" id="close-trace" aria-label="Close payload trace">×</button></div>
+    <p class="trace-intro">Run the actual pipeline functions with a local fixture. No network request or domain transition is simulated.</p>
+    <label for="trace-fixture">Choose a boundary case</label>
+    <select id="trace-fixture"><option value="valid">Valid event · seconds timestamp</option><option value="missing">Missing required field</option><option value="malformed">Malformed JSON</option></select>
+    <label for="trace-input">Raw payload · editable</label>
+    <textarea id="trace-input" spellcheck="false">{"value":4.2,"timestamp":1700000000}</textarea>
+    <button class="btn btn-sim" id="run-trace">Run pipeline</button>
+    <div id="trace-output" aria-live="polite"></div>
+  </dialog>
+  <div id="edge-tooltip"></div>
+
+  <script>
+    document.getElementById('close-trace').addEventListener('click', () => document.getElementById('trace-dialog').close());
+    let graphData = { nodes: [], edges: [], zones: [] };
+    let cloudMeshes = [];
+    let edgeLines = [];
+    let zoneMeshes = [];
+    let nodeLookup = {};
+    let selectedNode = null;
+    let autoRotate = false;
+    let graphRevision = null;
+    let syncing = false;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let pulseParticles = [];
+
+    // Scene Setup
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x07101b);
+    scene.fog = new THREE.FogExp2(0x07101b, 0.001);
+
+    const camera = new THREE.PerspectiveCamera(46, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 0, 220);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.25;
+    container.appendChild(renderer.domElement);
+
+    function offsetCamera() {
+      const offset = window.innerWidth > 600 ? -110 : 0;
+      camera.position.z = window.innerWidth <= 600 ? Math.max(220, 190 / (camera.aspect * 0.85)) : 220;
+      camera.setViewOffset(window.innerWidth, window.innerHeight, offset, 0, window.innerWidth, window.innerHeight);
+    }
+    offsetCamera();
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.maxDistance = 900;
+    controls.minDistance = 25;
+
+    // Lighting
+    const ambientLight = new THREE.AmbientLight(0x1e293b, 2.2);
+    scene.add(ambientLight);
+
+    const light1 = new THREE.PointLight(0x00f0ff, 3.5, 300);
+    light1.position.set(80, 70, 70);
+    scene.add(light1);
+
+    const light2 = new THREE.PointLight(0x9d4edd, 3.0, 300);
+    light2.position.set(-80, -50, -40);
+    scene.add(light2);
+
+    // Starfield Background
+    const starsGeo = new THREE.BufferGeometry();
+    const starCount = 380;
+    const starPos = new Float32Array(starCount * 3);
+    for (let i = 0; i < starCount * 3; i++) {
+      starPos[i] = (Math.random() - 0.5) * 500;
+    }
+    starsGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+    const starsMat = new THREE.PointsMaterial({ color: 0x475569, size: 0.45, transparent: true, opacity: 0.35 });
+    scene.add(new THREE.Points(starsGeo, starsMat));
+
+    // Particle Cloud Texture
+    function generateCloudParticleTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 128;
+      canvas.height = 128;
+      const ctx = canvas.getContext('2d');
+      const grad = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+      grad.addColorStop(0, 'rgba(255, 255, 255, 1)');
+      grad.addColorStop(0.25, 'rgba(255, 255, 255, 0.7)');
+      grad.addColorStop(0.6, 'rgba(255, 255, 255, 0.25)');
+      grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 128, 128);
+      return new THREE.CanvasTexture(canvas);
+    }
+    const cloudParticleTex = generateCloudParticleTexture();
+
+    // High-Fidelity Volumetric Cloud Factory
+    function createVolumetricCloud(colorHex, scale = 1.0) {
+      const group = new THREE.Group();
+      const baseColor = new THREE.Color(colorHex);
+
+      const coreGeo = new THREE.IcosahedronGeometry(3.2 * scale, 2);
+      const coreMat = new THREE.MeshStandardMaterial({
+        color: baseColor,
+        emissive: baseColor,
+        emissiveIntensity: 0.75,
+        roughness: 0.15,
+        metalness: 0.1,
+        transparent: true,
+        opacity: 0.85
+      });
+      const core = new THREE.Mesh(coreGeo, coreMat);
+      group.add(core);
+
+      const puffCount = 36;
+      const puffGeo = new THREE.BufferGeometry();
+      const puffPos = new Float32Array(puffCount * 3);
+      for (let i = 0; i < puffCount; i++) {
+        const u = Math.random();
+        const v = Math.random();
+        const theta = u * 2.0 * Math.PI;
+        const phi = Math.acos(2.0 * v - 1.0);
+        const r = Math.cbrt(Math.random()) * 5.8 * scale;
+        puffPos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+        puffPos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta) * 0.75;
+        puffPos[i * 3 + 2] = r * Math.cos(phi);
+      }
+      puffGeo.setAttribute('position', new THREE.BufferAttribute(puffPos, 3));
+      const puffMat = new THREE.PointsMaterial({
+        color: baseColor,
+        size: 9.0 * scale,
+        map: cloudParticleTex,
+        transparent: true,
+        opacity: 0.35,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+      });
+      const puff = new THREE.Points(puffGeo, puffMat);
+      group.add(puff);
+
+      const ringGeo = new THREE.RingGeometry(6.2 * scale, 6.6 * scale, 48);
+      const ringMat = new THREE.MeshBasicMaterial({
+        color: baseColor,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.35
+      });
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.rotation.x = Math.PI / 2;
+      group.add(ring);
+
+      return { group, core, puff, ring };
+    }
+
+    // Label Sprite Factory
+    function makeTextSprite(text, colorHex) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 512;
+      canvas.height = 128;
+      const ctx = canvas.getContext('2d');
+
+      ctx.fillStyle = 'rgba(7, 10, 16, 0.85)';
+      ctx.roundRect ? ctx.roundRect(8, 16, 496, 96, 22) : ctx.fillRect(8, 16, 496, 96);
+      ctx.fill();
+
+      ctx.strokeStyle = colorHex;
+      ctx.lineWidth = 4;
+      ctx.stroke();
+
+      ctx.font = 'bold 42px "Fira Code", monospace';
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      let fontSize = 42;
+      while (ctx.measureText(text).width > 460 && fontSize > 18) {
+        ctx.font = `bold ${--fontSize}px monospace`;
+      }
+      ctx.fillText(text, 256, 64);
+
+      const texture = new THREE.CanvasTexture(canvas);
+      const spriteMat = new THREE.SpriteMaterial({ map: texture, transparent: true, opacity: 0.95 });
+      const sprite = new THREE.Sprite(spriteMat);
+      sprite.scale.set(24, 6, 1);
+      return sprite;
+    }
+
+    // Bounding Zone Mesh Factory
+    function createZoneBox(zone) {
+      const b = zone.bounds;
+      const geo = new THREE.BoxGeometry(b.width, b.height, b.depth);
+      const edges = new THREE.EdgesGeometry(geo);
+      const lineMat = new THREE.LineBasicMaterial({
+        color: zone.color,
+        transparent: true,
+        opacity: 0.35
+      });
+      const wireframe = new THREE.LineSegments(edges, lineMat);
+      wireframe.position.set(b.x, b.y, b.z);
+
+      const bgMat = new THREE.MeshBasicMaterial({
+        color: zone.color,
+        transparent: true,
+        opacity: 0.04,
+        side: THREE.BackSide
+      });
+      const box = new THREE.Mesh(geo, bgMat);
+      wireframe.add(box);
+
+      // Label on top of zone
+      const label = makeTextSprite(zone.name.toUpperCase(), zone.color);
+      label.position.set(b.x, b.y + b.height / 2 + 3.5, b.z);
+      label.scale.set(24, 6, 1);
+      scene.add(label);
+
+      return { wireframe, label };
+    }
+
+    // Release graph-owned GPU resources when the disk revision changes.
+    function disposeObject(object) {
+      scene.remove(object);
+      object.traverse(child => {
+        child.geometry?.dispose();
+        const materials = Array.isArray(child.material) ? child.material : [child.material];
+        materials.filter(Boolean).forEach(material => {
+          if (material.map && material.map !== cloudParticleTex) material.map.dispose();
+          material.dispose();
+        });
+      });
+    }
+
+    // Render Scene
+    function build3DGraph(data) {
+      cloudMeshes.forEach(c => {
+        disposeObject(c.meshGroup);
+        disposeObject(c.labelSprite);
+      });
+      edgeLines.forEach(e => { disposeObject(e.line); if (e.arrow) disposeObject(e.arrow); });
+      zoneMeshes.forEach(z => {
+        disposeObject(z.wireframe);
+        disposeObject(z.label);
+      });
+      pulseParticles.forEach(p => disposeObject(p.mesh));
+
+      cloudMeshes = [];
+      edgeLines = [];
+      zoneMeshes = [];
+      nodeLookup = {};
+      pulseParticles = [];
+
+      // 1. Build Bounding Containment Zones
+      if (data.zones) {
+        data.zones.forEach(zone => {
+          const zm = createZoneBox(zone);
+          scene.add(zm.wireframe);
+          zoneMeshes.push(zm);
+        });
+      }
+
+      // 2. Build Cloud Nodes
+      data.nodes.forEach(node => {
+        const cloud = createVolumetricCloud(node.color || '#00f0ff', 1.0);
+        cloud.group.position.set(node.pos[0], node.pos[1], node.pos[2]);
+
+        const labelSprite = makeTextSprite(node.name, node.color || '#00f0ff');
+        labelSprite.position.set(node.pos[0], node.pos[1] - 7.5, node.pos[2]);
+        scene.add(labelSprite);
+
+        cloud.group.userData = { nodeData: node, labelSprite };
+        scene.add(cloud.group);
+
+        nodeLookup[node.id] = { node, meshGroup: cloud.group, core: cloud.core, ring: cloud.ring, puff: cloud.puff, pos: node.pos };
+        cloudMeshes.push({ node, meshGroup: cloud.group, core: cloud.core, ring: cloud.ring, puff: cloud.puff, labelSprite });
+      });
+
+      // 3. Build Directional Pipeline Edges
+      data.edges.forEach(edge => {
+        const src = nodeLookup[edge.source];
+        const tgt = nodeLookup[edge.target];
+        if (!src || !tgt) return;
+
+        const p1 = new THREE.Vector3(...src.pos);
+        const p2 = new THREE.Vector3(...tgt.pos);
+
+        const mid = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
+        mid.y += edge.type === 'tests' ? 0 : (edge.type === 'primary-pipeline' ? 8 : 4);
+
+        const curve = new THREE.QuadraticBezierCurve3(p1, mid, p2);
+        const points = curve.getPoints(40);
+        const geom = new THREE.BufferGeometry().setFromPoints(points);
+
+        const isPrimary = edge.type === 'primary-pipeline';
+        const mat = new (edge.type === 'tests' ? THREE.LineDashedMaterial : THREE.LineBasicMaterial)({
+          ...(edge.type === 'tests' ? { dashSize: 1.2, gapSize: 1.2 } : {}),
+          color: edge.type === 'tests' ? 0x1dd1a1 : isPrimary ? 0x9d4edd : 0xffb700,
+          transparent: true,
+          opacity: isPrimary ? 0.75 : 0.35,
+          linewidth: isPrimary ? 3 : 1
+        });
+
+        const line = new THREE.Line(geom, mat);
+        line.computeLineDistances();
+        line.userData = { edgeData: edge, curve };
+        scene.add(line);
+        const arrow = new THREE.ArrowHelper(curve.getTangent(0.76).normalize(), curve.getPoint(0.76), 3, mat.color, 2, 1);
+        scene.add(arrow);
+        edgeLines.push({ line, arrow, edge, curve, points, isPrimary });
+      });
+    }
+
+    // Animation Loop
+    const clock = new THREE.Clock();
+    function animate() {
+      requestAnimationFrame(animate);
+      const elapsed = clock.getElapsedTime();
+
+      cloudMeshes.forEach((item, i) => {
+        if (reducedMotion) return;
+        item.meshGroup.position.y = item.node.pos[1] + Math.sin(elapsed * 1.5 + i) * 0.35;
+        item.core.rotation.y += 0.009;
+        item.core.rotation.x += 0.005;
+        item.ring.rotation.z += 0.008;
+        item.puff.rotation.y -= 0.003;
+      });
+
+      // Advance Simulated Pulse Particles along Pipeline
+      for (let i = pulseParticles.length - 1; i >= 0; i--) {
+        const p = pulseParticles[i];
+        p.progress += p.speed;
+        if (p.progress >= 1.0) {
+          disposeObject(p.mesh);
+          pulseParticles.splice(i, 1);
+        } else {
+          p.mesh.position.copy(p.curve.getPoint(p.progress));
+        }
+      }
+
+      if (autoRotate && !selectedNode) {
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 0.5;
+      } else {
+        controls.autoRotate = false;
+      }
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    function emitPulseOnEdge(edgeObj, colorHex = 0x00ff66) {
+      const geo = new THREE.SphereGeometry(1.4, 16, 16);
+      const mat = new THREE.MeshBasicMaterial({ color: colorHex });
+      const mesh = new THREE.Mesh(geo, mat);
+      scene.add(mesh);
+      pulseParticles.push({
+        mesh,
+        curve: edgeObj.curve,
+        progress: 0,
+        speed: 0.018
+      });
+    }
+
+    // Source-backed trace is loaded lazily so the architecture remains usable on errors.
+    document.getElementById('btn-simulate').addEventListener('click', async () => {
+      document.getElementById('trace-dialog').showModal();
+      try {
+        const module = await import('/docs/visualizer/trace.js');
+        module.initializeTrace();
+      } catch (error) {
+        document.getElementById('trace-output').textContent = `Trace unavailable: ${error.message}`;
+      }
+    });
+
+    // Inspector Drawer Logic
+    const inspector = document.getElementById('inspector');
+    const panelTag = document.getElementById('panel-tag');
+    const panelName = document.getElementById('panel-name');
+    const panelPath = document.getElementById('panel-path');
+    const semanticsContainer = document.getElementById('semantics-container');
+    const conceptsContainer = document.getElementById('concepts-container');
+    const contractContainer = document.getElementById('contract-container');
+    const pseudocodeText = document.getElementById('pseudocode-text');
+    const rawCodeText = document.getElementById('raw-code-text');
+
+    function openInspector(node) {
+      selectedNode = node;
+      inspector.classList.add('open');
+      inspector.inert = false;
+      highlightNode(node.id);
+
+      panelTag.textContent = (node.stage || node.cluster).toUpperCase();
+      panelTag.style.backgroundColor = (node.color || '#00f0ff') + '24';
+      panelTag.style.color = node.color || '#00f0ff';
+      panelName.textContent = node.name;
+      panelPath.textContent = node.path;
+
+      // Semantics & Flow
+      semanticsContainer.innerHTML = '';
+      if (node.semanticsAndFlow) {
+        const sf = node.semanticsAndFlow;
+        semanticsContainer.innerHTML = `
+          <div class="flow-card">
+            <div class="flow-title"><span>🎯</span> Architectural Execution Role</div>
+            <p style="color: #38bdf8; font-family: 'Fira Code', monospace; font-size: 12px; margin-bottom: 8px;">
+              ${sf.executionRole || ''}
+            </p>
+            <p style="font-size: 13.5px; line-height: 1.6; color: #cbd5e1;">
+              ${sf.flow || ''}
+            </p>
+          </div>
+        `;
+      }
+
+      const evidence = document.createElement('div');
+      evidence.className = 'evidence-note';
+      evidence.textContent = `${node.evidence || 'Curated explanation'} · ${node.metrics?.lines ?? '—'} lines. Test links show references, not a live test result.`;
+      semanticsContainer.prepend(evidence);
+      const imports = document.createElement('p');
+      imports.className = 'evidence-note';
+      imports.textContent = `Source imports: ${(node.imports || []).join(', ') || 'none detected'}`;
+      semanticsContainer.append(imports);
+
+      // Enabling Concepts
+      conceptsContainer.innerHTML = '';
+      if (node.enablingConcepts && node.enablingConcepts.length > 0) {
+        node.enablingConcepts.forEach(c => {
+          const card = document.createElement('div');
+          card.className = 'concept-card';
+          card.style.borderLeftColor = node.color || '#00f0ff';
+          card.innerHTML = `
+            <div class="concept-title"><span>💡</span> ${c.name}</div>
+            <div class="concept-section">
+              <span class="section-tag tag-why">Engineering motivation</span>
+              <p class="concept-desc">${c.inventedFor}</p>
+            </div>
+            <div class="concept-section">
+              <span class="section-tag tag-solves">What It Solves in Live Feed Console</span>
+              <p class="concept-desc">${c.solvesForUs}</p>
+            </div>
+            <div class="concept-section">
+              <span class="section-tag tag-details">Behavior and limits</span>
+              <p class="concept-desc">${c.details}</p>
+            </div>
+          `;
+          conceptsContainer.appendChild(card);
+        });
+      }
+
+      // Contract
+      contractContainer.innerHTML = '';
+      if (node.contract) {
+        const box = document.createElement('div');
+        box.className = 'contract-box';
+        let contractHtml = '';
+        for (const [key, val] of Object.entries(node.contract)) {
+          contractHtml += `
+            <div style="margin-bottom: 12px;">
+              <div style="color: var(--cyan); font-weight: 700; font-size: 11px; text-transform: uppercase;">${key}</div>
+              <div style="color: #e2e8f0; margin-top: 4px; line-height: 1.5;">
+                ${Array.isArray(val) ? val.map(i => `<div>▸ ${i}</div>`).join('') : (typeof val === 'object' ? `<pre>${JSON.stringify(val, null, 2)}</pre>` : val)}
+              </div>
+            </div>
+          `;
+        }
+        box.innerHTML = contractHtml;
+        contractContainer.appendChild(box);
+      }
+
+      pseudocodeText.textContent = node.pseudocode || '// No pseudocode available';
+
+      // Live Code
+      rawCodeText.textContent = 'Loading live code from disk...';
+      fetch(`/api/file-content?path=${encodeURIComponent(node.path)}`)
+        .then(res => { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.text(); })
+        .then(code => { if (selectedNode?.id === node.id) rawCodeText.textContent = code; })
+        .catch(err => { if (selectedNode?.id === node.id) rawCodeText.textContent = `// Failed to load: ${err.message}`; });
+
+      document.querySelectorAll(".file-entry").forEach(b => b.classList.toggle("selected", b.dataset.id === node.id));
+    }
+
+    function closeInspector() {
+      selectedNode = null;
+      inspector.classList.remove('open');
+      inspector.inert = true;
+      highlightNode(null);
+      document.querySelectorAll('.file-entry').forEach(b => b.classList.remove('selected')); 
+    }
+
+    document.getElementById('btn-close-inspector').addEventListener('click', closeInspector);
+
+    // Tab Switching
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(btn.getAttribute('data-tab')).classList.add('active');
+      });
+    });
+
+    // Raycast Click
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    let pointerStart = null;
+    renderer.domElement.addEventListener('pointerdown', e => { pointerStart = [e.clientX, e.clientY]; });
+    renderer.domElement.addEventListener('pointerup', (e) => {
+      if (!pointerStart || Math.hypot(e.clientX-pointerStart[0], e.clientY-pointerStart[1]) > 5) return;
+      if (e.target.closest('#inspector') || e.target.closest('.controls-overlay') || e.target.closest('.legend-overlay') || e.target.closest('.top-nav') || e.target.closest('#sim-banner')) {
+        return;
+      }
+      mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+
+      const hitObjects = [];
+      cloudMeshes.forEach(cm => hitObjects.push(...cm.meshGroup.children));
+      const intersects = raycaster.intersectObjects(hitObjects);
+      if (intersects.length > 0) {
+        let rootGroup = intersects[0].object;
+        while (rootGroup.parent && !rootGroup.userData.nodeData) {
+          rootGroup = rootGroup.parent;
+        }
+        if (rootGroup.userData.nodeData) {
+          openInspector(rootGroup.userData.nodeData);
+        }
+      }
+    });
+
+    // Hover Tooltip for Edges
+    const tooltip = document.getElementById('edge-tooltip');
+    renderer.domElement.addEventListener('pointermove', (e) => {
+      mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+
+      const edgeHits = raycaster.intersectObjects(edgeLines.map(el => el.line));
+      if (edgeHits.length > 0) {
+        const edge = edgeHits[0].object.userData.edgeData;
+        tooltip.style.display = 'block';
+        tooltip.style.left = (e.clientX + 16) + 'px';
+        tooltip.style.top = (e.clientY + 16) + 'px';
+        tooltip.innerHTML = `
+          <div style="color: var(--cyan); font-weight: 700; font-size: 11px; text-transform: uppercase;">
+            ${edge.source} ➔ ${edge.target} (${edge.type})
+          </div>
+          <div style="font-weight: 700; margin-top: 3px; font-size: 13px;">${edge.label}</div>
+          <div style="color: #94a3b8; font-size: 11.5px; margin-top: 5px;">${edge.concept}</div>
+        `;
+      } else {
+        tooltip.style.display = 'none';
+      }
+    });
+
+    // Controls
+    const btnRotate = document.getElementById('btn-rotate');
+    btnRotate.addEventListener('click', () => {
+      autoRotate = !autoRotate;
+      btnRotate.classList.toggle('active', autoRotate);
+      btnRotate.setAttribute('aria-pressed', String(autoRotate));
+    });
+
+    document.getElementById('btn-reset-cam').addEventListener('click', () => {
+      controls.target.set(0, 0, 0);
+      camera.position.set(0, 0, 220);
+      offsetCamera();
+      closeInspector();
+    });
+
+    function highlightNode(id) {
+      const neighbors = new Set([id]);
+      graphData.edges.forEach(e => { if (e.source === id) neighbors.add(e.target); if (e.target === id) neighbors.add(e.source); });
+      cloudMeshes.forEach(item => {
+        const relevant = !id || neighbors.has(item.node.id);
+        item.core.material.opacity = relevant ? 0.85 : 0.15;
+        item.puff.material.opacity = relevant ? 0.30 : 0.04;
+        item.labelSprite.material.opacity = relevant ? 1 : 0.25;
+        item.ring.material.opacity = item.node.id === id ? 1 : relevant ? 0.3 : 0.08;
+      });
+      edgeLines.forEach(item => {
+        const relevant = !id || item.edge.source === id || item.edge.target === id;
+        item.line.material.opacity = relevant ? 0.65 : 0.06;
+        item.arrow.visible = relevant;
+      });
+    }
+
+    function renderFileList() {
+      const query = document.getElementById('file-search').value.toLowerCase();
+      const list = document.getElementById('file-list');
+      list.replaceChildren();
+      graphData.nodes.filter(n => `${n.name} ${n.path}`.toLowerCase().includes(query)).forEach(node => {
+        const button = document.createElement('button');
+        button.className = 'file-entry';
+        button.dataset.id = node.id;
+        button.style.setProperty('--node-color', node.color);
+        const title = document.createElement('strong'); title.textContent = node.name;
+        const path = document.createElement('small'); path.textContent = node.path;
+        button.append(title, path);
+        button.addEventListener('click', () => openInspector(node));
+        list.append(button);
+      });
+      if (!list.children.length) list.textContent = 'No matching files.';
+      document.getElementById('file-count').textContent = `${graphData.nodes.length} files`;
+    }
+    document.getElementById('file-search').addEventListener('input', renderFileList);
+    document.querySelectorAll('[data-node]').forEach(button => button.addEventListener('click', () => {
+      const node = graphData.nodes.find(n => n.id === button.dataset.node);
+      if (node) openInspector(node);
+    }));
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape') closeInspector();
+      if (event.key === '/' && !['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName) && !document.getElementById('trace-dialog').open) {
+        event.preventDefault(); document.getElementById('file-search').focus();
+      }
+    });
+
+    // Check disk every five seconds; only rebuild changed revisions.
+    async function syncLiveState() {
+      if (syncing) return;
+      syncing = true;
+      const tickerText = document.getElementById('ticker-text');
+      try {
+        const res = await fetch('/api/graph', { cache: 'no-store' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (!Array.isArray(data.nodes) || !Array.isArray(data.edges)) throw new Error('Invalid graph response');
+        if (graphRevision !== data.revision) {
+          const selectedId = selectedNode?.id;
+          graphData = data;
+          build3DGraph(graphData);
+          graphRevision = data.revision;
+          renderFileList();
+          const updated = graphData.nodes.find(n => n.id === selectedId);
+          if (updated) openInspector(updated); else closeInspector();
+        }
+        tickerText.textContent = `Disk synced ${new Date().toLocaleTimeString()} · every 5s`;
+      } catch (err) {
+        tickerText.textContent = `Disk sync unavailable · ${err.message}`;
+      } finally { syncing = false; }
+    }
+    document.getElementById('btn-rescan').addEventListener('click', syncLiveState);
+    syncLiveState();
+    setInterval(() => { if (!document.hidden) syncLiveState(); }, 5000);
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      offsetCamera();
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>

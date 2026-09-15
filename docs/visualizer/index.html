@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Live Feed — Follow the data</title>
+<link rel="stylesheet" href="/docs/visualizer/simulation.css">
+</head>
+<body>
+<header class="topbar"><a class="brand" href="/">◈ <span>LIVE FEED <b> / THE SYSTEM IN MOTION</b></span></a><a class="explore" href="/architecture.html">Explore files <span>↗</span></a></header>
+<main>
+  <section class="introduction">
+    <div><p class="eyebrow">ONE PAYLOAD. EVERY TRANSFORMATION.</p><h1>Follow the data.</h1><p class="lede">Watch a click become a request, a clean event, and a visible result.<br>Slow enough to understand what changes. Clear enough to see why.</p></div>
+    <div class="transport"><button id="play" class="primary" disabled>▶ Play system</button><div class="step-controls"><button id="next" disabled>Next step →</button><button id="restart" aria-label="Restart simulation">↺ Restart</button></div><span id="play-hint">One step every 5 seconds · pause anytime</span></div>
+  </section>
+
+  <section class="journey" aria-label="System dataflow">
+    <div class="journey-top"><span id="journey-label">THE JOURNEY <b> / ready to begin</b></span><span class="direction">DATA MOVES LEFT → RIGHT</span></div>
+    <div class="diagram" id="diagram">
+      <svg class="connections" viewBox="0 0 1000 180" preserveAspectRatio="none" aria-hidden="true"><defs><marker id="arrow" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="none" stroke="currentColor"/></marker></defs><path d="M100 74 H300 H500 H700 H900" marker-mid="url(#arrow)" marker-end="url(#arrow)"/></svg>
+      <canvas id="light-canvas" aria-hidden="true"></canvas>
+      <div id="packet" aria-hidden="true"><i></i><span>request</span></div>
+      <div class="file-stages">
+        <button class="file-stage" data-lane="0"><span class="stage-number">01 / RECEIVE</span><span class="orb green"></span><strong>PollingFeed.js</strong><small>Raw response text</small><em>Simulated transport</em></button>
+        <button class="file-stage" data-lane="1"><span class="stage-number">02 / PARSE</span><span class="orb gold"></span><strong>helpers.js</strong><small>Text → object</small><em>Source executed</em></button>
+        <button class="file-stage" data-lane="2"><span class="stage-number">03 / TRANSFORM</span><span class="orb purple"></span><strong>pipeline.js</strong><small>Check · normalize · enrich</small><em>Source executed</em></button>
+        <button class="file-stage" data-lane="3"><span class="stage-number">04 / RECORD</span><span class="orb cyan"></span><strong>Feed.js</strong><small>Domain telemetry</small><em>Source + replay harness</em></button>
+        <button class="file-stage" data-lane="4"><span class="stage-number">05 / PRESENT</span><span class="orb white"></span><strong>UI preview</strong><small id="ui-value">Waiting for an event</small><em>Simulated consumer</em></button>
+      </div>
+    </div>
+    <div class="journey-bottom"><div id="timeline" aria-label="Simulation steps"></div><span id="progress-label">0 / 8 steps</span></div>
+  </section>
+
+  <section class="explanation" aria-label="Current transformation">
+    <div class="explanation-heading"><div><p class="eyebrow" id="step-file">START HERE</p><h2 id="step-title">One click. One traceable journey.</h2></div><span class="evidence" id="step-kind">Interactive simulation</span></div>
+    <div class="ipo">
+      <article><h3><span>01</span> INPUT <i class="value-type" id="input-type">object</i></h3><pre id="input">{ "action": "Refresh feed" }</pre></article>
+      <article class="process"><h3><span>02</span> PROCESS <b>→</b></h3><code id="operation">Press Play system</code><p id="reason">Each stop reveals the input, the operation that changes it, and the output passed onward. Select a file to study its steps.</p></article>
+      <article><h3><span>03</span> OUTPUT <i class="value-type" id="output-type">pending</i></h3><pre id="output">Waiting for your click…</pre><p id="change-note"></p></article>
+    </div>
+    <div id="error-note" role="status" hidden></div>
+    <details id="source-details"><summary>See the live source</summary><pre id="source-code">Select a step first.</pre></details>
+  </section>
+  <footer><details class="scenario"><summary>Try a different input</summary><label for="scenario">Boundary case</label><select id="scenario"><option value="valid">Valid event</option><option value="missing">Missing required field</option><option value="malformed">Malformed JSON</option></select><p>Changing the input restarts the journey.</p></details><details class="display-details"><summary id="display-status">Checking display capabilities…</summary><p id="display-explanation">The simulation remains usable without HDR or WebGPU.</p><p id="disk-status">Checking source inventory…</p></details></footer>
+</main>
+<script type="module" src="/docs/visualizer/simulation.js"></script>
+</body>
+</html>

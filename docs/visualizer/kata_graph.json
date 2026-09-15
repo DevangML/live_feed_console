@@ -1,0 +1,89 @@
+{
+  "nodes": [
+    {
+      "id": "curry.js",
+      "path": "kata/curry.js",
+      "name": "curry.js",
+      "type": "kata",
+      "category": "The Currying Crucible: L1 to L5 Mastery",
+      "color": "#00d2d3",
+      "pos": [
+        0,
+        0,
+        0
+      ],
+      "levels": [
+        {
+          "level": 1,
+          "title": "Fixed 3-Arity Sum (Warmup)",
+          "example": "sum3(1)(2)(3) === 6",
+          "concept": "Nested lexical closures returning functions until arity reached."
+        },
+        {
+          "level": 2,
+          "title": "Infinite Sum with Empty Terminator",
+          "example": "infiniteSum(1)(2)(3)() === 6",
+          "concept": "Checking args.length === 0 in recursive closure to terminate."
+        },
+        {
+          "level": 3,
+          "title": "Coercion Trap via valueOf",
+          "example": "add(1)(2)(3) + 4 === 10",
+          "concept": "Overriding Function.prototype.valueOf / Symbol.toPrimitive to intercept numeric coercion."
+        },
+        {
+          "level": 4,
+          "title": "Universal curry(fn) Machine Coding",
+          "example": "curry(fn)(1, 2)(3) === fn(1,2,3)",
+          "concept": "Inspecting fn.length arity and accumulating arguments recursively."
+        },
+        {
+          "level": 5,
+          "title": "Placeholder Curry (Lodash _ Style)",
+          "example": "curriedSub(_, 2)(5, 1) === 2",
+          "concept": "Staff-level out-of-order argument accumulation using Symbol tokens."
+        }
+      ],
+      "mcqBank": [
+        {
+          "q": "function f1(a, b = 2, c) {}; console.log(f1.length);",
+          "ans": "1",
+          "why": "fn.length stops at the first default parameter."
+        },
+        {
+          "q": "function f2(a, ...rest) {}; console.log(f2.length);",
+          "ans": "1",
+          "why": "Rest parameters (...rest) are never counted in fn.length."
+        }
+      ]
+    },
+    {
+      "id": "partial_application.js",
+      "path": "kata/partial_application.js",
+      "name": "partial_application.js",
+      "type": "kata",
+      "category": "Partial Application vs Currying",
+      "color": "#ffb700",
+      "pos": [
+        -30,
+        -15,
+        0
+      ],
+      "details": "Fixing a subset of arguments now, returning a function accepting the remaining arguments in a single call."
+    },
+    {
+      "id": "currying.js",
+      "path": "kata/currying.js",
+      "name": "currying.js",
+      "type": "kata",
+      "category": "Unary Decomposition",
+      "color": "#9d4edd",
+      "pos": [
+        30,
+        -15,
+        0
+      ],
+      "details": "Transforming f(a,b,c) strictly into unary chains f(a)(b)(c)."
+    }
+  ]
+}

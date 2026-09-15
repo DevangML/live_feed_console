@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "visualizer": "python3 docs/visualizer/server.py"
   },
   "quokka": {
     "nativeEsm": true,

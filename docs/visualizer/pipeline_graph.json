@@ -1,0 +1,536 @@
+{
+  "zones": [
+    {
+      "id": "zone-input",
+      "name": "01 \u00b7 Ingestion (planned)",
+      "color": "#00ff66",
+      "bounds": {
+        "x": -60,
+        "y": 0,
+        "z": 0,
+        "width": 30,
+        "height": 35,
+        "depth": 30
+      },
+      "description": "Where external network polling begins, manages timers, abort signals, and HTTP dispatch."
+    },
+    {
+      "id": "zone-pipeline",
+      "name": "02 \u00b7 Transformation",
+      "color": "#9d4edd",
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "width": 45,
+        "height": 35,
+        "depth": 30
+      },
+      "description": "Zero-trust boundary: parses raw JSON, validates schema, normalizes epoch timestamps, enriches telemetry."
+    },
+    {
+      "id": "zone-domain",
+      "name": "03 \u00b7 Domain state",
+      "color": "#00f0ff",
+      "bounds": {
+        "x": 60,
+        "y": 0,
+        "z": 0,
+        "width": 35,
+        "height": 35,
+        "depth": 30
+      },
+      "description": "Private state, allowed status values and telemetry methods. No automatic circuit breaker."
+    },
+    {
+      "id": "zone-foundations",
+      "name": "Foundations",
+      "color": "#ffb700",
+      "bounds": {
+        "x": 0,
+        "y": -45,
+        "z": 0,
+        "width": 80,
+        "height": 25,
+        "depth": 30
+      },
+      "description": "Underlying combinators (pipe, parseJson), invariant assertions, strategy validators, and error hierarchy."
+    },
+    {
+      "id": "zone-tests",
+      "name": "Verification dock",
+      "color": "#1dd1a1",
+      "bounds": {
+        "x": 0,
+        "y": 48,
+        "z": -25,
+        "width": 95,
+        "height": 26,
+        "depth": 25
+      },
+      "description": "Isolated test harness dock proving mathematical correctness and boundaries for all runtime modules."
+    }
+  ],
+  "nodes": [
+    {
+      "id": "PollingFeed.js",
+      "path": "src/feeds/PollingFeed.js",
+      "name": "PollingFeed.js",
+      "type": "src",
+      "cluster": "ingestion",
+      "stage": "1. Ingestion Motor",
+      "color": "#00ff66",
+      "pos": [
+        -60,
+        5,
+        0
+      ],
+      "contract": {
+        "kind": "Planned polling motor \u00b7 empty subclass in current source",
+        "inherits": "Feed",
+        "implemented": "Class declaration only; no export, timer, fetch override or cancellation yet.",
+        "planned": [
+          "Non-overlapping asynchronous polling",
+          "AbortController cancellation with stale-result protection",
+          "Explicit status and telemetry updates"
+        ]
+      },
+      "semanticsAndFlow": {
+        "executionRole": "PLANNED INGESTION ENTRY POINT",
+        "flow": "Current source only declares class PollingFeed extends Feed. The left-to-right flow shows intended integration. There is no running polling motor yet."
+      },
+      "pseudocode": "// Current source shape\nimport Feed from \"./Feed.js\";\nclass PollingFeed extends Feed {}\n\n// Planned: start \u2192 await request \u2192 normalize \u2192 record result \u2192 schedule next poll.\n// stop must cancel pending scheduling and guard against stale completions.",
+      "enablingConcepts": [
+        {
+          "name": "Sequential scheduling",
+          "inventedFor": "Wait for work to settle before scheduling another request.",
+          "solvesForUs": "Planned for this subclass.",
+          "details": "A timer alone does not implement backpressure or lifecycle safety."
+        },
+        {
+          "name": "Cooperative cancellation",
+          "inventedFor": "Allow callers to signal that work is no longer needed.",
+          "solvesForUs": "Planned stop behavior.",
+          "details": "Aborting a fetch does not guarantee immediate TCP socket closure. A generation check can prevent late completions from affecting restarted feeds."
+        }
+      ]
+    },
+    {
+      "id": "pipeline.js",
+      "path": "src/feeds/pipeline.js",
+      "name": "pipeline.js",
+      "type": "src",
+      "cluster": "pipeline",
+      "stage": "2. Data Cleansing Pipeline",
+      "color": "#9d4edd",
+      "pos": [
+        0,
+        5,
+        0
+      ],
+      "contract": {
+        "kind": "Curried transformation pipeline",
+        "exports": [
+          "validateSchema(requiredFields)(data)",
+          "normalizeTimestamps(timestampField)(data)",
+          "enrichFeedMetadata(feedId)(data)",
+          "normalizerFactory({ feedId, requiredFields, timestampField })"
+        ],
+        "invariants": [
+          "validateSchema checks required field presence and returns the same object.",
+          "normalizeTimestamps and enrichFeedMetadata return shallow copies. Nested values remain shared.",
+          "Timestamp fallback and ingestedAt use Date.now(); these stages are not strictly pure.",
+          "Timestamp units are inferred by magnitude. This heuristic is not valid for every date or API."
+        ]
+      },
+      "semanticsAndFlow": {
+        "executionRole": "EXECUTABLE BOUNDARY TRANSFORMS",
+        "flow": "Raw text \u2192 parseJson \u2192 required-field presence checks \u2192 timestamp normalization \u2192 metadata. Open Trace a payload to run these exact functions. No React subscriber or network poller is connected here."
+      },
+      "pseudocode": "// Curried Pipeline Stages\nexport const normalizerFactory = ({ feedId, requiredFields, timestampField }) =>\n  pipe(\n    parseJson,\n    validateSchema(requiredFields),\n    normalizeTimestamps(timestampField),\n    enrichFeedMetadata(feedId)\n  );",
+      "enablingConcepts": [
+        {
+          "name": "Currying and composition",
+          "inventedFor": "Configure a transformation before supplying its data.",
+          "solvesForUs": "Schema and feed ID configuration produce unary pipeline stages.",
+          "details": "Currying is a design choice; pipe can also compose ordinary unary functions."
+        },
+        {
+          "name": "Shallow copying",
+          "inventedFor": "Avoid overwriting fields on the input object.",
+          "solvesForUs": "Normalization and enrichment spread the input into a new object.",
+          "details": "Validation returns the original object. New identity does not guarantee rendering or a frame rate; nested references remain shared."
+        },
+        {
+          "name": "Time-dependent transforms",
+          "inventedFor": "Attach ingestion time and handle missing timestamps.",
+          "solvesForUs": "The current implementation reads Date.now().",
+          "details": "This introduces nondeterminism. The timestamp threshold is a heuristic; inspect edge cases rather than assuming every input is normalized correctly."
+        }
+      ]
+    },
+    {
+      "id": "Feed.js",
+      "path": "src/feeds/Feed.js",
+      "name": "Feed.js",
+      "type": "src",
+      "cluster": "domain",
+      "stage": "3. Encapsulated State Machine",
+      "color": "#00f0ff",
+      "pos": [
+        60,
+        5,
+        0
+      ],
+      "contract": {
+        "kind": "Abstract Domain Class",
+        "guard": "if (new.target === Feed) throw TypeError",
+        "privateFields": [
+          "#id",
+          "#name",
+          "#endpoints",
+          "#status",
+          "#lastFetchedAt",
+          "#lastLatencyMs",
+          "#consecutiveFailures",
+          "#lastError"
+        ],
+        "methods": [
+          "setStatus(s)",
+          "recordSuccess(latency)",
+          "recordFailure(err)",
+          "start()",
+          "stop()",
+          "fetch()"
+        ],
+        "invariants": [
+          "Private fields restrict direct access; public methods still mutate internal state.",
+          "Endpoint copies are shallow. Nested objects would still be shared.",
+          "The new.target guard blocks direct Feed construction, but does not force subclasses to override methods.",
+          "start, stop and fetch throw unless overridden."
+        ]
+      },
+      "semanticsAndFlow": {
+        "executionRole": "ENCAPSULATED DOMAIN BASE",
+        "flow": "Starts IDLE. setStatus accepts any member of the allowed status set; it does not enforce a transition graph. recordSuccess and recordFailure update telemetry but do not change status. There is no circuit breaker threshold or request gating in the current source."
+      },
+      "pseudocode": "class Feed {\n  #id; #name; #endpoints; #status = 'IDLE';\n  #lastFetchedAt; #lastLatencyMs; #consecutiveFailures = 0;\n\n  constructor(id, name, endpoints) {\n    if (new.target === Feed) throw TypeError(\"Cannot construct Feed directly\");\n    this.#endpoints = [...endpoints]; // defensive copy\n  }\n\n  get endpoints() { return [...this.#endpoints]; } // defensive getter\n\n  recordSuccess(latency) {\n    this.#lastFetchedAt = Date.now();\n    this.#lastLatencyMs = latency;\n    this.#consecutiveFailures = 0;\n  }\n}",
+      "enablingConcepts": [
+        {
+          "name": "Private fields",
+          "inventedFor": "Restrict direct access to internal fields.",
+          "solvesForUs": "The class owns status, endpoint storage and telemetry.",
+          "details": "Encapsulation is not immutability. Methods of this class can still change private state."
+        },
+        {
+          "name": "Defensive copying",
+          "inventedFor": "Avoid sharing the endpoint array container with callers.",
+          "solvesForUs": "Constructor and getter create array copies.",
+          "details": "Copies are shallow and do not clone nested objects."
+        },
+        {
+          "name": "Abstract-method convention",
+          "inventedFor": "Make unsupported direct use fail early.",
+          "solvesForUs": "new.target rejects new Feed; base lifecycle methods throw.",
+          "details": "JavaScript does not verify that a subclass overrides those methods. No automatic circuit breaker is implemented."
+        }
+      ]
+    },
+    {
+      "id": "helpers.js",
+      "path": "utils/helpers.js",
+      "name": "helpers.js",
+      "type": "utils",
+      "cluster": "foundations",
+      "stage": "Foundation: Combinators",
+      "color": "#ffb700",
+      "pos": [
+        -25,
+        -42,
+        0
+      ],
+      "contract": {
+        "exports": [
+          "pipe(...funcs)",
+          "compose(...funcs)",
+          "parseJson(raw)",
+          "capitalize(s)"
+        ]
+      },
+      "semanticsAndFlow": {
+        "executionRole": "FUNCTIONAL PLUMBING & SAFE SHIELD",
+        "flow": "pipe() runs reduce; parseJson shields native SyntaxErrors as domain ParseErrors."
+      },
+      "pseudocode": "export const pipe = (...funcs) => (val) =>\n  funcs.reduce((prev, fn) => fn(prev), val);\n\nexport const parseJson = (raw) => {\n  if (typeof raw !== 'string') return raw;\n  try { return JSON.parse(raw); }\n  catch (e) { throw new ParseError(e.message, 'unknown'); }\n};",
+      "enablingConcepts": [
+        {
+          "name": "Left-to-Right Function Composition (pipe)",
+          "inventedFor": "Category theory composition implemented via Array.prototype.reduce.",
+          "solvesForUs": "Readable linear transformation flow pipe(f, g, h)(x) === h(g(f(x))).",
+          "details": "Executes synchronously, passing accumulator output to next stage."
+        },
+        {
+          "name": "Boundary Exception Shielding",
+          "inventedFor": "Defensive programming around native JSON.parse.",
+          "solvesForUs": "Intercepts SyntaxError and stamps with telemetry-aware ParseError.",
+          "details": "Passthrough if input is already parsed object."
+        }
+      ]
+    },
+    {
+      "id": "assertions.js",
+      "path": "utils/assertions.js",
+      "name": "assertions.js",
+      "type": "utils",
+      "cluster": "foundations",
+      "stage": "Foundation: Invariant Guard",
+      "color": "#ffb700",
+      "pos": [
+        10,
+        -42,
+        0
+      ],
+      "contract": {
+        "exports": [
+          "assertValid(value, label, type)"
+        ]
+      },
+      "semanticsAndFlow": {
+        "executionRole": "FAIL-FAST INVARIANT CHECKER",
+        "flow": "Queries VALIDATORS[type] -> checkType -> isEmpty -> throws TypeError / RangeError."
+      },
+      "pseudocode": "export function assertValid(value, label, type) {\n  const rules = VALIDATORS[type];\n  if (!rules) throw new TypeError(`Unknown validation type: ${type}`);\n  if (!rules.checkType(value)) throw new TypeError(`${label} has invalid type`);\n  if (rules.isEmpty(value)) throw new RangeError(`${label} cannot be empty`);\n}",
+      "enablingConcepts": [
+        {
+          "name": "Fail-Fast Invariant Enforcement",
+          "inventedFor": "Jim Gray (Turing Award). Halts execution at the exact point of invalid input.",
+          "solvesForUs": "Ensures no Feed can be created with corrupt ID or empty endpoints.",
+          "details": "Distinguishes TypeError (wrong primitive) from RangeError (empty bounds)."
+        }
+      ]
+    },
+    {
+      "id": "validators.js",
+      "path": "utils/validators.js",
+      "name": "validators.js",
+      "type": "utils",
+      "cluster": "foundations",
+      "stage": "Foundation: Strategy Predicates",
+      "color": "#ffb700",
+      "pos": [
+        45,
+        -42,
+        0
+      ],
+      "contract": {
+        "exports": [
+          "VALIDATORS (string, number, array rules)"
+        ]
+      },
+      "semanticsAndFlow": {
+        "executionRole": "PREDICATE RULEBOOK",
+        "flow": "Supplies type and bounds checking logic to assertions.js."
+      },
+      "pseudocode": "export const VALIDATORS = {\n  string: { checkType: (v) => typeof v === 'string', isEmpty: (v) => v.trim() === '' },\n  number: { checkType: (v) => typeof v === 'number' && !Number.isNaN(v), isEmpty: () => false },\n  array: { checkType: (v) => Array.isArray(v), isEmpty: (v) => v.length === 0 || v.some(e => typeof e === 'string' && e.trim() === '') }\n};",
+      "enablingConcepts": [
+        {
+          "name": "Data-Driven Strategy Pattern",
+          "inventedFor": "GoF Strategy Pattern to decouple rule logic from assertion mechanisms.",
+          "solvesForUs": "Extensible validation predicates without modifying constructor code.",
+          "details": "Uses Array.isArray and Number.isNaN to defend against JS type coercion flaws."
+        }
+      ]
+    },
+    {
+      "id": "errors.js",
+      "path": "src/feeds/errors.js",
+      "name": "errors.js",
+      "type": "src",
+      "cluster": "foundations",
+      "stage": "Foundation: Error Telemetry",
+      "color": "#ffb700",
+      "pos": [
+        -60,
+        -42,
+        0
+      ],
+      "contract": {
+        "classes": [
+          "FeedError extends Error",
+          "NetworkError extends FeedError",
+          "ParseError extends FeedError"
+        ]
+      },
+      "semanticsAndFlow": {
+        "executionRole": "TELEMETRY EXCEPTION HIERARCHY",
+        "flow": "Carries feedId and HTTP statusCode across system boundaries for automated triage."
+      },
+      "pseudocode": "class FeedError extends Error {\n  constructor(message, feedId) {\n    super(message);\n    this.feedId = feedId;\n    this.name = 'FeedError';\n  }\n}\nclass NetworkError extends FeedError {\n  constructor(message, feedId, statusCode) {\n    super(message, feedId);\n    this.statusCode = statusCode;\n    this.name = 'NetworkError';\n  }\n}\nclass ParseError extends FeedError {\n  constructor(message, feedId) {\n    super(message, feedId);\n    this.name = 'ParseError';\n  }\n}",
+      "enablingConcepts": [
+        {
+          "name": "Prototypal Error Hierarchy & Telemetry Tagging",
+          "inventedFor": "Enables instanceof discrimination in catch blocks without string parsing.",
+          "solvesForUs": "Downstream catch triage: retry NetworkError vs quarantine ParseError.",
+          "details": "Inherits V8 stack trace capture while stamping feedId and statusCode."
+        }
+      ]
+    },
+    {
+      "id": "Feed.test.js",
+      "path": "tests/src/feeds/Feed.test.js",
+      "name": "Feed.test.js",
+      "type": "test",
+      "cluster": "test-dock",
+      "stage": "Verification Dock",
+      "color": "#1dd1a1",
+      "pos": [
+        35,
+        48,
+        -25
+      ],
+      "contract": {
+        "kind": "Vitest Behavioral Test Suite",
+        "target": "Feed.js"
+      },
+      "semanticsAndFlow": {
+        "executionRole": "BEHAVIORAL TEST SOURCE",
+        "flow": "Verifies new.target guard, defensive copying, and status transitions. Test presence and references do not establish a current passing run or mathematical proof."
+      },
+      "pseudocode": "describe('Feed.js', () => {\n  it('rejects direct instantiation', () => expect(() => new Feed('id','name',['url'])).toThrow(TypeError));\n  it('guarantees defensive copying', () => { ... });\n});",
+      "enablingConcepts": []
+    },
+    {
+      "id": "pipeline.test.js",
+      "path": "tests/src/feeds/pipeline.test.js",
+      "name": "pipeline.test.js",
+      "type": "test",
+      "cluster": "test-dock",
+      "stage": "Verification Dock",
+      "color": "#1dd1a1",
+      "pos": [
+        0,
+        48,
+        -25
+      ],
+      "contract": {
+        "kind": "Vitest Pipeline Test Suite",
+        "target": "pipeline.js"
+      },
+      "semanticsAndFlow": {
+        "executionRole": "BEHAVIORAL TEST SOURCE",
+        "flow": "Verifies schema validation, timestamp normalization, and metadata injection. Test presence and references do not establish a current passing run or mathematical proof."
+      },
+      "pseudocode": "describe('pipeline.js', () => {\n  it('normalizes seconds to milliseconds', () => { ... });\n  it('enriches metadata', () => { ... });\n});",
+      "enablingConcepts": []
+    },
+    {
+      "id": "errors.test.js",
+      "path": "tests/src/feeds/errors.test.js",
+      "name": "errors.test.js",
+      "type": "test",
+      "cluster": "test-dock",
+      "stage": "Verification Dock",
+      "color": "#1dd1a1",
+      "pos": [
+        -35,
+        48,
+        -25
+      ],
+      "contract": {
+        "kind": "Vitest Inheritance Test Suite",
+        "target": "errors.js"
+      },
+      "semanticsAndFlow": {
+        "executionRole": "BEHAVIORAL TEST SOURCE",
+        "flow": "Asserts instanceof prototype integrity across FeedError subclasses. Test presence and references do not establish a current passing run or mathematical proof."
+      },
+      "pseudocode": "it('verifies prototype inheritance chain', () => {\n  const err = new NetworkError('timeout', 'feed-1', 504);\n  expect(err instanceof NetworkError).toBe(true);\n});",
+      "enablingConcepts": []
+    }
+  ],
+  "edges": [
+    {
+      "source": "PollingFeed.js",
+      "target": "pipeline.js",
+      "type": "primary-pipeline",
+      "label": "Intended dataflow \u00b7 not integrated",
+      "concept": "Architectural intent: the PollingFeed motor and end-to-end integration are not implemented.",
+      "evidence": "Planned integration"
+    },
+    {
+      "source": "pipeline.js",
+      "target": "Feed.js",
+      "type": "primary-pipeline",
+      "label": "Intended dataflow \u00b7 not integrated",
+      "concept": "Architectural intent: the PollingFeed motor and end-to-end integration are not implemented.",
+      "evidence": "Planned integration"
+    },
+    {
+      "source": "PollingFeed.js",
+      "target": "Feed.js",
+      "type": "extends",
+      "label": "Inherits Abstract Base Class",
+      "concept": "PollingFeed inherits private slots, status state machine, and telemetry methods via super()"
+    },
+    {
+      "source": "pipeline.js",
+      "target": "helpers.js",
+      "type": "imports",
+      "label": "Uses pipe() & parseJson()",
+      "concept": "Composes curried stages and shields JSON.parse SyntaxErrors"
+    },
+    {
+      "source": "pipeline.js",
+      "target": "errors.js",
+      "type": "throws",
+      "label": "Throws ParseError",
+      "concept": "Raises domain ParseError when schema validation fails or payload is malformed"
+    },
+    {
+      "source": "PollingFeed.js",
+      "target": "errors.js",
+      "type": "throws",
+      "label": "Planned network error handling",
+      "concept": "Not implemented by the empty PollingFeed subclass.",
+      "evidence": "Planned integration"
+    },
+    {
+      "source": "Feed.js",
+      "target": "assertions.js",
+      "type": "imports",
+      "label": "Constructor Boundary Guard",
+      "concept": "assertValid enforces non-empty string and array types in Feed constructor"
+    },
+    {
+      "source": "assertions.js",
+      "target": "validators.js",
+      "type": "delegates",
+      "label": "Predicate Rule Lookup",
+      "concept": "VALIDATORS strategy dictionary defines checkType and isEmpty predicates"
+    },
+    {
+      "source": "Feed.test.js",
+      "target": "Feed.js",
+      "type": "tests",
+      "label": "Verifies Feed Invariants",
+      "concept": "Exercises new.target guard, defensive copying, and state machine transitions",
+      "evidence": "Curated test reference; not a live result"
+    },
+    {
+      "source": "pipeline.test.js",
+      "target": "pipeline.js",
+      "type": "tests",
+      "label": "Verifies Pipeline Invariants",
+      "concept": "Exercises schema validation, epoch thresholding, and metadata enrichment",
+      "evidence": "Curated test reference; not a live result"
+    },
+    {
+      "source": "errors.test.js",
+      "target": "errors.js",
+      "type": "tests",
+      "label": "Verifies Error Hierarchy",
+      "concept": "Exercises prototype chain integrity for instanceof discrimination",
+      "evidence": "Curated test reference; not a live result"
+    }
+  ]
+}
