@@ -51,5 +51,6 @@
   // ==========================================
   // 7. Console Ninja
   // ==========================================
-  "console-ninja.installBinToPath": true
+  "console-ninja.installBinToPath": true,
+  "continue.enableTabAutocomplete": false,
 }
